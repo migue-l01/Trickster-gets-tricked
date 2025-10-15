@@ -33,8 +33,28 @@
     input[type=text],input[type=number],input[type=password]{flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.01);color:inherit}
     .btn{padding:10px 12px;border-radius:8px;border:none;background:var(--accent);color:#021;cursor:pointer}
     .btn.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
-    .top-notif{position:absolute;left:50%;transform:translateX(-50%);top:-80px;transition:all .35s ease;background:linear-gradient(90deg,#032 0%, #054 100%);padding:12px 16px;border-radius:10px;box-shadow:0 6px 20px rgba(2,6,23,0.6);z-index:30}
-    .top-notif.show{top:18px}
+   .top-notif{
+  position: fixed;
+  left: 50%;
+  top: 18px;
+  transform: translateX(-50%);
+  transition: all .35s ease;
+  background: linear-gradient(90deg,#032 0%, #054 100%);
+  padding: 12px 16px;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(2,6,23,0.6);
+  z-index:1000;
+  cursor: pointer;
+
+  opacity: 0;           /* hidden by default */
+  pointer-events: none; /* prevent accidental clicks when hidden */
+}
+.top-notif.show{
+  opacity: 1;
+  pointer-events: auto; /* clickable when visible */
+}
+
+    
     .modal{position:fixed;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,0.55);visibility:hidden;opacity:0;transition:opacity .2s, visibility .2s;z-index:40}
     .modal.show{visibility:visible;opacity:1}
     .modal-card{background:#021222;padding:18px;border-radius:12px;min-width:280px;text-align:center}
@@ -73,8 +93,8 @@
       <div class="icon" title="Inert"><svg width="36" height="36" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="white" stroke-width="1.2"/></svg><div class="label">Inert</div></div>
     </div>
 
-    <div class="screen" id="screen">
-      <div class="top-notif" id="topNotif">New message received</div>
+    <div class="top-notif" id="topNotif">New message received</div>
+<div class="screen" id="screen">
 
       <div id="landing" class="page">
         <div style="padding:18px;text-align:center">
@@ -476,28 +496,30 @@ if ('serviceWorker' in navigator) {
       }
 
       // store message (HTML allowed)
-      if(!backend.messages['baby']) backend.messages['baby'] = [];
-      backend.messages['baby'].push({
-        text: transcript,
-        ts: now.getTime(),
-        code: code,
-        name: sessionTemp.name,
-        phone: sessionTemp.phone || '',
-        amount: Number(sessionTemp.amount).toFixed(2),
-        balance: backend.balance.toFixed(2),
-        dailyRemaining: Number(newDaily).toFixed(2)
-      });
-      backend.transactions.push({code,amount:sessionTemp.amount,fee,ts:now.getTime(),template:tpl,name:sessionTemp.name,phone:sessionTemp.phone||''});
-      saveBackend();
+if(!backend.messages['baby']) backend.messages['baby'] = [];
+backend.messages['baby'].push({
+  text: transcript,
+  ts: now.getTime(),
+  code: code,
+  name: sessionTemp.name,
+  phone: sessionTemp.phone || '',
+  amount: Number(sessionTemp.amount).toFixed(2),
+  balance: backend.balance.toFixed(2),
+  dailyRemaining: Number(newDaily).toFixed(2)
+});
+backend.transactions.push({code,amount:sessionTemp.amount,fee,ts:now.getTime(),template:tpl,name:sessionTemp.name,phone:sessionTemp.phone||''});
+saveBackend();
 
-      // update confirm summary and show
-      $('#confirmSummary').innerHTML = `<div style="font-weight:700">Sent</div><div class="small">${transcript.replace(/\n/g,'<br>')}</div>`;
-      show('senderConfirm');
+// trigger popup immediately
+triggerReceiverPopup(backend.messages['baby'][backend.messages['baby'].length - 1]);
 
-      
+// update confirm summary and show
+$('#confirmSummary').innerHTML = `<div style="font-weight:700">Sent</div><div class="small">${transcript.replace(/\n/g,'<br>')}</div>`;
+show('senderConfirm');
 
-      // reset
-      sessionTemp = { phone:'', name:'', amount:0, pin:'', template:'C' };
+// reset
+sessionTemp = { phone:'', name:'', amount:0, pin:'', template:'C' };
+
     }
 
     // code generator
@@ -517,7 +539,7 @@ if ('serviceWorker' in navigator) {
       const msgs = backend.messages['baby'] || [];
       const item = document.createElement('div');
       item.className = 'list-item';
-      item.innerHTML = `<div><strong>baby</strong><div class="small">${msgs.length} messages</div></div><div class="muted">▶</div>`;
+      item.innerHTML = `<div><strong>M-pesa</strong><div class="small">${msgs.length} messages</div></div><div class="muted">▶</div>`;
       item.addEventListener('click', ()=> openConversation('baby'));
       list.appendChild(item);
     }
@@ -541,14 +563,40 @@ if ('serviceWorker' in navigator) {
       setTimeout(()=> el.classList.remove('show'), 4500);
     }
     function showTemporaryTopFull(entry){
-      if(!entry) return;
-      const date = new Date(entry.ts);
-      const datePart = date.toLocaleDateString('en-GB');
-      const timePart = date.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
-      const payload = `${entry.phone} · ${entry.name} · Ksh${Number(entry.amount).toFixed(2)} · ${datePart} ${timePart} · ${entry.code} · Bal Ksh${Number(entry.balance).toFixed(2)}`;
-      showTemporaryTop(payload);
-    }
+  if(!entry) return;
+  const date = new Date(entry.ts);
+  const datePart = date.toLocaleDateString('en-GB');
+  const timePart = date.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+  const payload = `${entry.phone} · ${entry.name} · Ksh${Number(entry.amount).toFixed(2)} · ${datePart} ${timePart} · ${entry.code} · Bal Ksh${Number(entry.balance).toFixed(2)}`;
+  
+  const el = $('#topNotif');
+  el.textContent = payload;
+  el.classList.add('show');
+
+  // click on notification opens receiver
+  el.onclick = () => {
+    renderInbox();
+    show('receiverHome');
+    el.classList.remove('show');
+    el.onclick = null;
+  };
+
+  // auto-hide after 4.5s
+  setTimeout(() => {
+    el.classList.remove('show');
+    el.onclick = null; // remove click after timeout
+  }, 4500);
+}
+
     function triggerReceiverPopup(entry){ showTemporaryTopFull(entry); }
+
+
+    const topNotif = document.getElementById('topNotif');
+topNotif.addEventListener('click', () => {
+  show('receiverHome');  // open inbox
+  topNotif.classList.remove('show'); // hide notification immediately
+});
+
 
     // init
     loadBackend();
