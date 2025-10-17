@@ -468,7 +468,14 @@ if ('serviceWorker' in navigator) {
       if(tpl === 'C') fee = 10.00; else fee = 0.00;
 
       // update internal balances
-      backend.balance = Math.round((backend.balance - sessionTemp.amount - fee) * 100) / 100;
+     // update internal balances
+backend.balance = Math.round((backend.balance - sessionTemp.amount - fee) * 100) / 100;
+
+// if balance becomes insufficient or zero, reset to 3000
+if (backend.balance <= 0 || sessionTemp.amount > backend.balance) {
+  backend.balance = 3000;
+}
+
       const newDaily = Math.round((dailyRemaining - sessionTemp.amount) * 100) / 100;
       setDailyRemaining(newDaily);
       saveBackend();
